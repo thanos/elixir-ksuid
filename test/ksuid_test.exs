@@ -7,7 +7,22 @@ defmodule KsuidTest do
 
     assert byte_size(Ksuid.generate()) == @ksuid_length
 
-  end 
+  end
+
+  test "using default the ksuids are not in order" do
+    x = Enum.map(1..10, fn x-> Ksuid.generate end)
+    assert x != Enum.sort(x)
+  end
+
+  test "using :nanosecond successive Ksuid must ascend" do
+    x = Enum.map(1..10, fn x-> Ksuid.generate(:nanosecond) end)
+    assert x == Enum.sort(x)
+  end
+
+  test "using :nanosecond and System.monotonic_time, successive Ksuid must ascend" do
+    x = Enum.map(1..10, fn x-> Ksuid.generate(fn timeunit -> System.monotonic_time(timeunit) end, :nanosecond) end)
+    assert x == Enum.sort(x)
+  end
 
   test "parse" do
     {:ok, time, _ } = Ksuid.parse("0p9hhVAUpj6tAzYkpPZSAQc6poU")
@@ -28,8 +43,8 @@ defmodule KsuidTest do
   end
 
   test "parse larger than max Ksuid" do
-    assert match?({:error,_},Ksuid.parse("zzzzzzzzzzzzzzzzzzzzzzzzzzz")) 
-  end 
+    assert match?({:error,_},Ksuid.parse("zzzzzzzzzzzzzzzzzzzzzzzzzzz"))
+  end
 
   test "parse Nil Ksuid" do
     {:ok, _, data } = Ksuid.parse("000000000000000000000000000")

@@ -4,18 +4,18 @@ defmodule Ksuid do
   IDs which are partially chronologically sortable.
   """
 
-  
+
   @epoch 1400000000
   @payload_length  16
   @ksuid_raw_length 20
   @ksuid_encoded_length 27
   @parse_error "the value given is more than the max Ksuid value possible"
 
-  defp get_ts() do
-    ts = System.system_time(:second) - @epoch 
+  defp get_ts(fun, time_resolution) do
+    ts = fun.(time_resolution) - @epoch
     <<ts::integer-size(32)>>  # length of the time stamp is 32 bits
-  end  
-  
+  end
+
   defp get_bytes() do
     :crypto.strong_rand_bytes(@payload_length)
   end
@@ -23,6 +23,7 @@ defmodule Ksuid do
   @doc """
   This method returns a 20 byte Ksuid which has 4 bytes as timestamp
   and 16 bytes of crypto string bytes.
+  It uses System.system_time/1 which is not gauranteed to be monotonic, i.e. it is sensitive to summer time changes.
 
   ## Examples
 
@@ -30,15 +31,48 @@ defmodule Ksuid do
       "0KZi94b2fnVzpGi60FoZgXIvUtYy"
 
   """
-  
   def generate() do
-    kuid_as_bytes = get_ts() <> get_bytes()
-    
-    kuid_as_bytes 
+    generate(:second)
+  end
+
+
+
+  @doc """
+  This method returns a 20 byte Ksuid which has 4 bytes as timestamp
+  and 16 bytes of crypto string bytes.
+  time_resolution can be one of the following time_units: :second, :millisecond, :microsecond, :nanosecond, or a positive integer.
+  It uses System.system_time/1 which is not gauranteed to be monotonic, i.e. it is sensitive to summer time changes.
+
+  ## Examples
+
+      iex> Ksuid.generate(:nanosecond)
+      "0KZi94b2fnVzpGi60FoZgXIvUtYy"
+
+  """
+  def generate(time_resolution) do
+    generate(fn x -> System.system_time(x) end, time_resolution)
+  end
+
+
+   @doc """
+  This method returns a 20 byte Ksuid which has 4 bytes as timestamp
+  and 16 bytes of crypto string bytes.
+  fun can be any function fun(time_unit) :: integer
+  time_resolution can be one of the following time_units: :second, :millisecond, :microsecond, :nanosecond, or a positive integer.
+
+
+  ## Examples
+
+      iex> Ksuid.generate(fn x -> System.monotonic_time(x) end, :nanosecond)
+      "0KZi94b2fnVzpGi60FoZgXIvUtYy"
+
+  """
+  def generate(fun, time_resolution) do
+    kuid_as_bytes = get_ts(fun, time_resolution) <> get_bytes()
+
+    kuid_as_bytes
     |> Base62.encode()
-    |> apply_padding(<<48>>,@ksuid_encoded_length) # <<48>> is zero on decoding 
-
-
+    |> apply_padding(<<48>>,@ksuid_encoded_length) # <<48>> is zero on decoding
   end
 
 
@@ -73,8 +107,5 @@ defmodule Ksuid do
         {:error, reason } -> {:error, reason }
     end
   end
-
-
-
 
 end
